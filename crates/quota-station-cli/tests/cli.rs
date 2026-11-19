@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 //! The command line's words: `claude …` goes to the app's commands, with
-//! the advanced part's; anything else gets the usage.
+//! the advanced part's, `antigravity …` to the app's Antigravity commands in
+//! a build with them; anything else gets the usage.
 
 fn call(args: &[&str]) -> (i32, String, String) {
     let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
@@ -40,4 +41,24 @@ fn an_argument_that_is_not_utf8_is_refused_not_cut() {
         let bad = OsString::from_vec(vec![0x66, 0xff, 0x6f]);
         assert_eq!(quota_station_cli::text_args([OsString::from("claude"), bad]), None);
     }
+}
+
+/// `antigravity …` goes to the app's Antigravity commands, in a build with
+/// them.
+#[cfg(feature = "antigravity-accounts")]
+#[test]
+fn antigravity_is_the_apps_antigravity_commands() {
+    let (code, out, err) = call(&["antigravity", "help"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    assert_eq!(out, quota_station_core::antigravity::cli::USAGE);
+    assert!(out.contains("  import DIR|FILE.tar|-"), "{out}");
+}
+
+/// A build without the Antigravity accounts says how to get them.
+#[cfg(not(feature = "antigravity-accounts"))]
+#[test]
+fn without_the_antigravity_accounts_antigravity_says_how_to_build_them() {
+    let (code, out, err) = call(&["antigravity", "status"]);
+    assert_eq!((code, out.as_str()), (1, ""));
+    assert!(err.contains("--features antigravity-accounts"), "{err}");
 }

@@ -30,6 +30,23 @@ pub trait Seal: Send + Sync + std::fmt::Debug {
     fn open(&self, sealed: &[u8]) -> io::Result<Vec<u8>>;
 }
 
+/// No seal: the bytes as they are, in a file only its owner reads
+/// ([`SealedFiles`] writes mode 600 in folders of mode 700). The app's
+/// secrets on Linux, where a headless machine, or WSL, has no keyring the
+/// app could count on.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Plain;
+
+impl Seal for Plain {
+    fn seal(&self, plain: &[u8]) -> io::Result<Vec<u8>> {
+        Ok(plain.to_vec())
+    }
+
+    fn open(&self, sealed: &[u8]) -> io::Result<Vec<u8>> {
+        Ok(sealed.to_vec())
+    }
+}
+
 /// The items as sealed files under one folder.
 #[derive(Debug, Clone)]
 pub struct SealedFiles<S> {
@@ -83,6 +100,9 @@ impl<S: Seal> SecretStore for SealedFiles<S> {
 
     fn set(&self, service: &str, account: &str, value: &str) -> Result<(), KeychainError> {
         let file = self.file(service, account);
+        // The folder of every service's items is its owner's alone too.
+        #[cfg(unix)]
+        crate::os::owner_dir(&self.dir).map_err(failed)?;
         let sealed = self.seal.seal(value.as_bytes()).map_err(failed)?;
         write_new(&file, &sealed).map_err(failed)
     }

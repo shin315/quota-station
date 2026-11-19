@@ -3,7 +3,7 @@
 
 [package]
 name = "quota-station-cli"
-description = "Quota Station's `claude` commands without the app, for Linux (and Linux in WSL): keeps and switches the Claude accounts and runs the rotation from a systemd user timer."
+description = "Quota Station's `claude` and `antigravity` commands without the app, for Linux (and Linux in WSL): keeps and switches the Claude accounts and runs the rotation from a systemd user timer, and switches the Antigravity accounts agy uses."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -17,6 +17,13 @@ publish = false
 [[bin]]
 name = "quota-station-cli"
 path = "src/main.rs"
+
+[features]
+# `quota-station antigravity …`: the Antigravity accounts, switched for the
+# agy that runs on this machine, whose code is in part adapted under
+# CC BY-NC-SA 4.0 (`LICENSES/`, `NOTICE`). Off, the binary is MIT only and
+# has the `claude` commands alone.
+antigravity-accounts = ["quota-station-core/antigravity-accounts"]
 
 [dependencies]
 quota-station-core = { path = "../quota-station-core" }

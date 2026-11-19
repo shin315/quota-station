@@ -333,8 +333,10 @@ jobs:
   # the core and `quota-station-cli` with and without the Antigravity
   # accounts, the core's unit tests and its Linux tests (the accounts'
   # logins as files, the switch that writes Claude Code's
-  # `.credentials.json`, the rotation and its systemd user timer). The
-  # core's other tests drive macOS's tools and stay on the macOS job.
+  # `.credentials.json`, the rotation and its systemd user timer), and the
+  # Antigravity accounts there (a bundle imported, agy's login file written
+  # by a switch and a rotation). The core's other tests drive macOS's tools
+  # and stay on the macOS job.
   build-linux:
     name: Build and test (Linux command line)
     needs: changes
@@ -353,10 +355,13 @@ jobs:
         run: cargo clippy -p quota-station-core -p quota-station-cli --all-targets --locked -- -D warnings
 
       - name: Clippy with the Antigravity accounts
-        run: cargo clippy -p quota-station-core -p quota-station-cli --all-targets --locked --features quota-station-core/antigravity-accounts -- -D warnings
+        run: cargo clippy -p quota-station-core -p quota-station-cli --all-targets --locked --features quota-station-core/antigravity-accounts,quota-station-cli/antigravity-accounts -- -D warnings
 
       - name: cargo test (the command line, the core's unit and Linux tests)
         run: cargo test -p quota-station-core -p quota-station-cli --locked --no-fail-fast --lib --test claude_linux --test cli
+
+      - name: cargo test (the Antigravity accounts on Linux)
+        run: cargo test -p quota-station-core -p quota-station-cli --locked --no-fail-fast --features quota-station-core/antigravity-accounts,quota-station-cli/antigravity-accounts --test antigravity_linux --test cli
 
       - name: The release binary
         run: cargo build -p quota-station-cli --release --locked

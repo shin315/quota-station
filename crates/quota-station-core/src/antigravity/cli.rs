@@ -7,7 +7,14 @@
 //! `rotate` is one run of the rotation ([`super::rotate`]) and `rotation`
 //! turns its LaunchAgent on or off. `status`, `rotate` and `rotation status`
 //! name the accounts held out of the rotation ("Tạm dừng tự chuyển" in the
-//! app). No command prints a token; only `status --emails` prints emails.
+//! app). `export` and `import` carry the accounts to another computer
+//! ([`super::bundle`]). No command prints a token; only `status --emails`,
+//! `export` and `import` print emails.
+//!
+//! On Linux (and Linux in WSL) the same commands run from the command line
+//! alone (`quota-station-cli`): the tokens are the app's own files, a switch
+//! writes the file agy keeps its login in, and there is no desktop app to
+//! quit or open again.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -16,6 +23,7 @@ use std::sync::Arc;
 use serde::Serialize;
 use time::OffsetDateTime;
 
+use super::bundle::Bundle;
 use super::cloud_code::Hosts;
 use super::credential::SharedLogin;
 use super::desktop::Desktop;
@@ -51,6 +59,13 @@ usage: quota-station antigravity <command>
                         every MIN minutes (default 30)
   rotation off          stop it
   rotation status [--json]
+  export DIR|FILE.tar|-
+                        write every account, its token and the OAuth client
+                        to a new folder, a tar file or (-) stdout, for
+                        `import` on another computer; keep it like a password
+  import DIR|FILE.tar|-
+                        add the accounts of a bundle `export` wrote (a folder,
+                        a tar file or (-) a tar stream on stdin)
 ";
 
 /// After a switch: what `agy` sessions that were already running do.
@@ -66,6 +81,8 @@ pub struct Cli {
     pub exe: PathBuf,
     pub world: Box<dyn World>,
     pub schedule: Schedule,
+    /// The accounts' tokens, for `export` and `import`.
+    pub keychain: Keychain,
 }
 
 impl Cli {
@@ -77,6 +94,7 @@ impl Cli {
             exe: std::env::current_exe().unwrap_or_else(|_| "quota-station".into()),
             world: Box::new(System),
             schedule: Schedule::system(),
+            keychain: Keychain::system(),
         }
     }
 }
@@ -229,11 +247,88 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
             }
         }
         "rotation" => rotation(cli, rest, out, err),
+        "export" => match rest.first().filter(|a| !a.starts_with("--") || *a == "-") {
+            Some(to) => export(cli, to, out, err),
+            None => usage_error(err),
+        },
+        "import" => match rest.first().filter(|a| !a.starts_with("--") || *a == "-") {
+            Some(from) => import(cli, from, out, err),
+            None => usage_error(err),
+        },
         "help" | "--help" | "-h" => {
             let _ = write!(out, "{USAGE}");
             0
         }
         _ => usage_error(err),
+    }
+}
+
+/// `export TO`: the bundle to the folder `TO`, the tar file `TO` (a name
+/// ending in `.tar`), or a tar stream on `out` (`-`), never to a terminal.
+/// The accounts, by number and email, on `out`, or on `err` when the
+/// bundle went to `out`.
+fn export(cli: &Cli, to: &str, out: &mut dyn Write, err: &mut dyn Write) -> i32 {
+    let fail = |err: &mut dyn Write, e: &dyn std::fmt::Display| {
+        let _ = writeln!(err, "quota-station antigravity export: {e}");
+        1
+    };
+    let bundle = match Bundle::collect(&cli.app, &cli.keychain) {
+        Ok(bundle) => bundle,
+        Err(e) => return fail(err, &e),
+    };
+    let written = if to == "-" {
+        use std::io::IsTerminal;
+        if std::io::stdout().is_terminal() {
+            return fail(err, &"the bundle holds every account's token: send it to a file or a pipe, not the terminal");
+        }
+        bundle.write_tar(out)
+    } else if to.ends_with(".tar") {
+        crate::os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
+            .open(to)
+            .map_err(Into::into)
+            .and_then(|mut file| bundle.write_tar(&mut file))
+    } else {
+        bundle.write_dir(Path::new(to))
+    };
+    if let Err(e) = written {
+        return fail(err, &e);
+    }
+    let said: &mut dyn Write = if to == "-" { err } else { out };
+    for (n, email) in bundle.accounts() {
+        let _ = writeln!(said, "exported account {n}  {email}");
+    }
+    0
+}
+
+/// `import FROM`: the bundle in the folder `FROM`, the tar file `FROM`, or
+/// the tar stream on stdin (`-`), into the app's store here.
+fn import(cli: &Cli, from: &str, out: &mut dyn Write, err: &mut dyn Write) -> i32 {
+    let fail = |err: &mut dyn Write, e: &dyn std::fmt::Display| {
+        let _ = writeln!(err, "quota-station antigravity import: {e}");
+        1
+    };
+    let path = Path::new(from);
+    let bundle = if from == "-" {
+        Bundle::read_tar(&mut std::io::stdin().lock())
+    } else if path.is_dir() {
+        Bundle::read_dir(path)
+    } else {
+        std::fs::File::open(path)
+            .map_err(Into::into)
+            .and_then(|mut file| Bundle::read_tar(&mut file))
+    };
+    let bundle = match bundle {
+        Ok(bundle) => bundle,
+        Err(e) => return fail(err, &e),
+    };
+    match bundle.install(&cli.app, &cli.keychain) {
+        Ok(accounts) => {
+            for (n, email) in accounts {
+                let _ = writeln!(out, "imported account {n}  {email}");
+            }
+            0
+        }
+        Err(e) => fail(err, &e),
     }
 }
 
@@ -492,7 +587,11 @@ fn print_status(view: &StatusOut, out: &mut dyn Write) {
     if view.status != "ok" {
         let why = view.reason.as_deref().unwrap_or("unavailable");
         let _ = match why {
-            "no_accounts" => writeln!(out, "no Antigravity accounts yet: log one in from the app"),
+            "no_accounts" => writeln!(
+                out,
+                "no Antigravity accounts yet: log one in from the app, or import the ones \
+                 another computer exported"
+            ),
             _ => writeln!(out, "the accounts cannot be listed ({why})"),
         };
         return;

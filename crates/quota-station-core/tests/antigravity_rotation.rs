@@ -19,6 +19,7 @@ use common::temp_dir;
 use quota_station_core::antigravity::cli::{self, Cli};
 use quota_station_core::antigravity::index::{self, AccountIndex, AccountSummary, Standing};
 use quota_station_core::antigravity::rotate::{self, Decision, Fresh, Schedule, Settings, World};
+use quota_station_core::antigravity::store::Keychain;
 use quota_station_core::antigravity::switch::{self, How, LogLine, Outcome};
 use quota_station_core::antigravity::{listing, watch};
 use quota_station_core::app_dir::AppDir;
@@ -282,6 +283,7 @@ fn cli(tag: &str, used: [f64; 3], active: usize) -> (Cli, PathBuf) {
         exe: dir.join("Quota Station.app/Contents/MacOS/quota-station"),
         world: Box::new(FakeWorld::on(active)),
         schedule: Schedule { launchctl: dir.join("no-launchctl") },
+        keychain: Keychain::files(&dir.join("secrets")),
     };
     (cli, dir)
 }

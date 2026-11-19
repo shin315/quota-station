@@ -19,7 +19,8 @@ file joined to them, drawn wide on purpose:
   tests/common/google.rs and desktop.rs, tests/fixtures/cloud-code/, and
   src/popover/AgySwitch.test.tsx
 
-They are compiled only with the Cargo feature antigravity-accounts, and
+They are compiled only with the Cargo feature antigravity-accounts (of the
+app, and of the command line for Linux, crates/quota-station-cli), and
 bundled into the interface only when it is built with
 QS_ANTIGRAVITY_ACCOUNTS=1; scripts/install.sh turns both on for a build
 from source. Without them src/antigravity-off/ (MIT) stands in, and the app

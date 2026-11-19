@@ -1,16 +1,26 @@
-# Linux: the Claude accounts from the command line
+# Linux: the Claude and Antigravity accounts from the command line
 
 The app is for macOS and Windows. On Linux, and on Linux in WSL on a
-Windows PC, where Claude Code often runs without a desktop, Quota Station is
-the command line alone: `quota-station-cli`, a binary of its own with the
-app's `quota-station claude …` commands, the same files and the same JSON,
-and the automatic rotation from a `systemd --user` timer. No window, no tray
-icon.
+Windows PC, where Claude Code and agy often run without a desktop, Quota
+Station is the command line alone: `quota-station-cli`, a binary of its own
+with the app's `quota-station claude …` commands, the same files and the
+same JSON, and the automatic rotation from a `systemd --user` timer; built
+with the Antigravity accounts, also the app's `quota-station antigravity …`
+commands for the agy that runs on that machine
+([below](#the-antigravity-accounts)). No window, no tray icon.
 
 ## Build and install
 
 ```sh
 cargo build --release -p quota-station-cli
+install -D -m 755 target/release/quota-station-cli ~/.local/bin/quota-station
+```
+
+With the Antigravity accounts (their code is in part under CC BY-NC-SA 4.0,
+see `NOTICE`):
+
+```sh
+cargo build --release -p quota-station-cli --features antigravity-accounts
 install -D -m 755 target/release/quota-station-cli ~/.local/bin/quota-station
 ```
 
@@ -94,4 +104,97 @@ line to run the rotation from `cron` instead (`crontab -e`):
 
 ```sh
 */3 * * * * '/home/you/.local/bin/quota-station' claude rotate >/dev/null 2>&1
+```
+
+## The Antigravity accounts
+
+`quota-station antigravity status | switch N | switch EMAIL | rotate` work
+as on a Mac ([features.md](features.md)), for the agy that runs on this
+Linux machine. The accounts are not logged in here: they are logged in once
+in the app on a Mac and carried over in a bundle.
+
+### Carrying the accounts over
+
+On the Mac, with the app built with the Antigravity accounts:
+
+```sh
+'/Applications/Quota Station.app/Contents/MacOS/quota-station' antigravity export ~/agy-accounts.tar
+```
+
+Copy `agy-accounts.tar` to the Linux machine (on WSL, for example, from
+`/mnt/c/Users/<you>/Downloads`), then:
+
+```sh
+quota-station antigravity import ~/agy-accounts.tar
+rm ~/agy-accounts.tar
+quota-station antigravity status
+```
+
+Or in one go over SSH, nothing written to a disk on the way:
+
+```sh
+'/Applications/Quota Station.app/Contents/MacOS/quota-station' antigravity export - \
+  | ssh the-linux-machine 'quota-station antigravity import -'
+```
+
+`export DIR|FILE.tar|-` writes a new folder, a new tar file of mode 600, or
+a tar stream on stdout (refused when stdout is a terminal). `import
+DIR|FILE.tar|-` reads a folder, a tar file or a tar stream on stdin. Both
+print the accounts by number and email, nothing else. The accounts keep
+their numbers: the Mac's numbers are this machine's, unless accounts were
+imported here before, which keep theirs (the new ones come after them). An
+account imported again gets its new token. Accounts held out of the
+rotation on the Mac are held out here too.
+
+The bundle holds every account's refresh token: whoever has it can use the
+accounts. Keep it like a password and remove it once imported.
+
+### The bundle
+
+A folder (mode 700, its files 600), or the same files in a tar stream:
+
+| File | What |
+|---|---|
+| `manifest.json` | `{"format": "quota-station-antigravity-accounts", "version": 1}` |
+| `accounts.json` | the account index, as the app keeps it (`version` `2.0`, each account's `id`, `email`, `name`, `created_at`, `last_used`, `rotation_paused`); `current_account_id` is left out |
+| `oauth-client.json` | the OAuth client the tokens were got with, `{"client_id": …, "client_secret": …}`, which refreshes them here |
+| `tokens/<id>.json` | each account's token, as the app keeps it in its Keychain item (`access_token`, `refresh_token`, `expiry_timestamp`, `email`, `project_id`…) |
+
+`import` checks it all before it writes anything: the manifest, an index of
+version 2.0 whose ids are the MD5 of their emails (`antigravity_<md5>`), a
+usable client, and for each account a token with a refresh token, of that
+account's email. Any other file is refused, as is a link in a tar stream.
+
+### Where things are
+
+| What | Where |
+|---|---|
+| agy's login | `~/.gemini/antigravity-cli/antigravity-oauth-token` (mode 600): the JSON of the access token, the refresh token and its expiry. agy for Linux keeps its login in this file where it finds no keyring it can count on: under WSL, on a host with no D-Bus session bus, over SSH, in a container. On a Linux desktop with a Secret Service agy reads the keyring first, and a switch here does not reach it. |
+| The accounts, readings, switch and rotation files | `~/.config/com.shin315.quota-station/antigravity/` (mode 700), as on a Mac under `~/Library/Application Support` |
+| Each account's token | `~/.config/com.shin315.quota-station/antigravity/secrets/com.shin315.quota-station.antigravity/<id>.bin`, mode 600 in folders of mode 700, written whole and renamed over the old one |
+| The OAuth client | `~/.config/com.shin315.quota-station/oauth-client.json` (mode 600) |
+
+### Switching
+
+```sh
+quota-station antigravity status [--json] [--emails] [--refresh]
+quota-station antigravity switch 3
+quota-station antigravity switch someone@example.com
+quota-station antigravity rotate --dry-run
+```
+
+`switch` writes the account's login to agy's file, replacing it whole.
+There is no desktop app to quit or open again. agy is a program each
+terminal starts on its own: an agy session started after the switch is on
+the new account; one that was already running stays on the old one and
+writes the old login back at its next hourly token refresh, so quit and
+start those again. `status` names the account in use from the last switch
+(or from agy's own reading, when it answers).
+
+`rotate` is one run of the Mac's rotation. `rotation on` is refused: there
+is no LaunchAgent here, and the refusal gives the `crontab` line that runs
+the rotation every three minutes instead:
+
+```sh
+*/3 * * * * '/home/you/.local/bin/quota-station' antigravity rotate >/dev/null 2>&1
 ```

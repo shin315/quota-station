@@ -10,8 +10,17 @@
 //! `gemini`, account `antigravity`, its value the payload in go-keyring's
 //! base64; on Windows one generic credential in Credential Manager, target
 //! `gemini:antigravity`, user `antigravity`, its value the payload's JSON as
-//! it is, as go-keyring keeps it there. Switching the Antigravity account
-//! means replacing it, and this module is the only place the app names it.
+//! it is, as go-keyring keeps it there; on Linux the file agy keeps it in,
+//! [`AGY_LOGIN_FILE`] under the home folder, its value the payload's JSON as
+//! it is. Switching the Antigravity account means replacing it, and this
+//! module is the only place the app names it.
+//!
+//! agy for Linux reads the system keyring (the Secret Service, over D-Bus)
+//! only where it finds one it can count on. Under WSL, on a host with no
+//! D-Bus session bus, over SSH and in a container it keeps its login in
+//! that file instead, of mode 600 (checked in agy 1.5.12's own Linux build).
+//! The file is replaced whole: written to a temporary file beside it and
+//! renamed over it, so a failed write leaves the login that was there.
 //!
 //! The app only ever writes the item, never reads it, and only when the
 //! owner confirms a switch. The write updates the item in place
@@ -21,7 +30,7 @@
 //! would ask the owner for the login password at every switch.
 
 #[cfg(not(windows))]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -41,6 +50,15 @@ pub const ACCOUNT: &str = "antigravity";
 pub const TARGET: &str = "gemini:antigravity";
 /// What go-keyring puts before a base64 value.
 const PREFIX: &str = "go-keyring-base64:";
+/// agy's login on Linux, under the home folder: its file-based token
+/// storage, in agy's own folder.
+pub const AGY_LOGIN_FILE: &str = ".gemini/antigravity-cli/antigravity-oauth-token";
+
+/// The file agy keeps its login in on Linux, for `home`.
+#[cfg(not(windows))]
+pub fn agy_login_file(home: &Path) -> PathBuf {
+    home.join(AGY_LOGIN_FILE)
+}
 /// The write's timeout: `security` can hang while
 /// the Keychain is locked, and is stopped then.
 pub const TIMEOUT: Duration = Duration::from_secs(15);
@@ -105,6 +123,8 @@ pub enum CredentialError {
     },
     /// Credential Manager refused the write (Windows): its own words.
     Refused(String),
+    /// agy's login file could not be written (Linux): why.
+    File(String),
 }
 
 impl std::fmt::Display for CredentialError {
@@ -121,77 +141,139 @@ impl std::fmt::Display for CredentialError {
             CredentialError::Refused(message) => {
                 write!(f, "Credential Manager refused the write: {message}")
             }
+            CredentialError::File(message) => write!(f, "could not write agy's login: {message}"),
         }
     }
 }
 
 impl std::error::Error for CredentialError {}
 
-/// Writes the shared item.
+/// Writes the shared item (macOS), or agy's login file (Linux).
 #[cfg(not(windows))]
 pub struct SharedLogin {
-    program: PathBuf,
-    timeout: Duration,
+    to: Target,
+}
+
+#[cfg(not(windows))]
+enum Target {
+    /// The Keychain item, through `security`.
+    Keychain { program: PathBuf, timeout: Duration },
+    /// agy's login file.
+    File(PathBuf),
 }
 
 #[cfg(not(windows))]
 impl SharedLogin {
-    /// macOS's `security`.
+    /// macOS's `security`; on Linux agy's login file in the user's home.
     pub fn system() -> Self {
-        // The tests run a fake `security`; one that reached for the real
-        // Keychain stops here.
+        // The tests run a fake `security` or a file of their own; one that
+        // reached for the real Keychain or agy's real login stops here.
         if cfg!(feature = "test-support") {
             panic!("tests must use a fake security");
         }
-        SharedLogin { program: PathBuf::from("/usr/bin/security"), timeout: TIMEOUT }
+        #[cfg(target_os = "linux")]
+        {
+            let home = crate::linux::home().expect("no home folder: HOME is not set");
+            SharedLogin::file(agy_login_file(&home))
+        }
+        #[cfg(not(target_os = "linux"))]
+        SharedLogin {
+            to: Target::Keychain { program: PathBuf::from("/usr/bin/security"), timeout: TIMEOUT },
+        }
+    }
+
+    /// agy's login as the file at `path`, as agy keeps it on Linux.
+    pub fn file(path: impl Into<PathBuf>) -> Self {
+        SharedLogin { to: Target::File(path.into()) }
     }
 
     /// A fake `security` for the tests, with its own timeout.
     #[cfg(feature = "test-support")]
     pub fn fake(program: impl Into<PathBuf>, timeout: Duration) -> Self {
-        SharedLogin { program: program.into(), timeout }
+        SharedLogin { to: Target::Keychain { program: program.into(), timeout } }
     }
 
     /// Puts `token` on the shared login. Antigravity.app and agy see it the
     /// next time they start.
     pub fn write(&self, token: &TokenData) -> Result<(), CredentialError> {
-        self.write_payload(&build_payload(token))
-    }
-
-    /// Updates the item in place (`-U`) so a failed write leaves the existing
-    /// login intact.
-    ///
-    /// It never passes `-A` (nor `-T`). Those make `security` set the item's
-    /// access, and on an item that exists it does so with a second Keychain
-    /// call, `SecKeychainItemSetAccess`, which changes the item's ACL and so
-    /// asks the owner for the login password every time: on the owner's Mac
-    /// each switch put up that dialog, and the item's access stayed as it was.
-    /// Without them `-U` replaces the value only, and the access the item has
-    /// stays as it is: `/usr/bin/security` alone, which is how Antigravity's
-    /// own keyring (go-keyring) leaves it, and how `agy` reads it, without a
-    /// prompt, to this day. An item that does not exist yet is created the
-    /// same way.
-    ///
-    /// The value goes on `security`'s command line (`-w`); the form that
-    /// prompts for it needs a terminal. A process of the same user that lists
-    /// arguments can see it for the moment `security` runs.
-    fn write_payload(&self, payload_json: &str) -> Result<(), CredentialError> {
-        let keychain_value = keychain_value(payload_json);
-        let args =
-            ["add-generic-password", "-U", "-s", SERVICE, "-a", ACCOUNT, "-w", &keychain_value]
-                .map(String::from);
-        let output = runner::run(&self.program, &args, self.timeout).map_err(|e| match e {
-            RunError::Timeout(_) => CredentialError::Timeout,
-            other => CredentialError::Spawn(other.to_string()),
-        })?;
-        if output.code != Some(0) {
-            return Err(CredentialError::Failed {
-                code: output.code,
-                message: runner::first_line(&output.stderr),
-            });
+        let payload = build_payload(token);
+        match &self.to {
+            Target::Keychain { program, timeout } => write_item(program, *timeout, &payload),
+            Target::File(path) => write_file(path, &payload),
         }
-        Ok(())
     }
+}
+
+/// Updates the item in place (`-U`) so a failed write leaves the existing
+/// login intact.
+///
+/// It never passes `-A` (nor `-T`). Those make `security` set the item's
+/// access, and on an item that exists it does so with a second Keychain
+/// call, `SecKeychainItemSetAccess`, which changes the item's ACL and so
+/// asks the owner for the login password every time: on the owner's Mac
+/// each switch put up that dialog, and the item's access stayed as it was.
+/// Without them `-U` replaces the value only, and the access the item has
+/// stays as it is: `/usr/bin/security` alone, which is how Antigravity's
+/// own keyring (go-keyring) leaves it, and how `agy` reads it, without a
+/// prompt, to this day. An item that does not exist yet is created the
+/// same way.
+///
+/// The value goes on `security`'s command line (`-w`); the form that
+/// prompts for it needs a terminal. A process of the same user that lists
+/// arguments can see it for the moment `security` runs.
+#[cfg(not(windows))]
+fn write_item(
+    program: &Path,
+    timeout: Duration,
+    payload_json: &str,
+) -> Result<(), CredentialError> {
+    let keychain_value = keychain_value(payload_json);
+    let args = ["add-generic-password", "-U", "-s", SERVICE, "-a", ACCOUNT, "-w", &keychain_value]
+        .map(String::from);
+    let output = runner::run(program, &args, timeout).map_err(|e| match e {
+        RunError::Timeout(_) => CredentialError::Timeout,
+        other => CredentialError::Spawn(other.to_string()),
+    })?;
+    if output.code != Some(0) {
+        return Err(CredentialError::Failed {
+            code: output.code,
+            message: runner::first_line(&output.stderr),
+        });
+    }
+    Ok(())
+}
+
+/// agy's login file replaced whole by `payload_json`, as agy writes it: the
+/// JSON as it is, mode 600. Written to a temporary file beside it and renamed
+/// over it, so a failed write leaves the login that was there; agy's folder
+/// is made, for its owner alone, when it is not there yet.
+#[cfg(not(windows))]
+fn write_file(path: &Path, payload_json: &str) -> Result<(), CredentialError> {
+    use std::io::Write;
+    use std::os::unix::fs::DirBuilderExt;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let fail = |e: std::io::Error| CredentialError::File(e.to_string());
+    let dir = path.parent().ok_or_else(|| CredentialError::File("no folder".into()))?;
+    std::fs::DirBuilder::new().recursive(true).mode(0o700).create(dir).map_err(fail)?;
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let tmp = dir.join(format!(
+        ".{name}.{}.{}.tmp",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    let written =
+        crate::os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
+            .open(&tmp)
+            .and_then(|mut file| {
+                file.write_all(payload_json.as_bytes())?;
+                crate::os::sync_all(&file)
+            })
+            .and_then(|()| crate::os::replace(&tmp, path));
+    if written.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    written.map_err(fail)
 }
 
 /// Writes the shared credential (Windows).
