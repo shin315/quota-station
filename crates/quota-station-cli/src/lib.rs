@@ -8,6 +8,12 @@
 //! ([`quota_station_core::os`]). On Linux the logins are Claude Code's
 //! `~/.claude/.credentials.json` and the app's files of mode 600, and the
 //! rotation runs from a `systemd --user` timer.
+//!
+//! Built with the `antigravity-accounts` feature, it also has the app's
+//! `quota-station antigravity …` commands
+//! ([`quota_station_core::antigravity::cli`]), for the agy that runs on this
+//! machine: on Linux a switch writes the file agy keeps its login in, and
+//! `import` takes the accounts another computer's `export` wrote.
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -22,11 +28,13 @@ use quota_station_core::ext::Hooks;
 /// of it.
 pub const HOOKS: AdvancedHooks = AdvancedHooks;
 
-/// What a word other than `claude` gets.
+/// What a word other than `claude` or `antigravity` gets.
 pub const USAGE: &str = "\
 usage: quota-station claude <command>
+       quota-station antigravity <command>
 
-  `quota-station claude help` lists the commands.
+  `quota-station claude help` and `quota-station antigravity help` list
+  the commands.
 ";
 
 /// Runs `args` (the words after the program's name); the exit code.
@@ -41,6 +49,16 @@ pub fn run(args: &[String], out: &mut dyn Write, err: &mut dyn Write) -> i32 {
                 return 1;
             };
             claude(&home, &args[1..], &HOOKS, out, err)
+        }
+        Some("antigravity") => {
+            let Some(home) = home() else {
+                let _ = writeln!(
+                    err,
+                    "quota-station antigravity: no home folder (HOME is unset or not an absolute path)"
+                );
+                return 1;
+            };
+            antigravity(&home, &args[1..], out, err)
         }
         Some("help" | "--help" | "-h") => {
             let _ = write!(out, "{USAGE}");
@@ -68,6 +86,41 @@ pub fn claude(
         tools: cli::Tools::system(home),
     };
     cli::run(&cli, hooks, args, out, err)
+}
+
+/// `quota-station antigravity …` for `home`: the app's commands, with this
+/// system's store, agy's login and no desktop app on Linux.
+#[cfg(feature = "antigravity-accounts")]
+pub fn antigravity(
+    home: &std::path::Path,
+    args: &[String],
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> i32 {
+    use quota_station_core::antigravity::cli;
+    // The usage needs none of this system's stores.
+    if matches!(args.first().map(String::as_str), None | Some("help" | "--help" | "-h")) {
+        let _ = write!(out, "{}", cli::USAGE);
+        return 0;
+    }
+    cli::run(&cli::Cli::system(home), args, out, err)
+}
+
+/// A build without the Antigravity accounts has no `antigravity` commands.
+#[cfg(not(feature = "antigravity-accounts"))]
+pub fn antigravity(
+    home: &std::path::Path,
+    args: &[String],
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> i32 {
+    let _ = (home, args, out);
+    let _ = writeln!(
+        err,
+        "quota-station antigravity: this build has no Antigravity accounts \
+         (build it with --features antigravity-accounts)"
+    );
+    1
 }
 
 /// The home folder the commands and the secret store use: on Linux the one

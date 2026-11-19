@@ -498,8 +498,8 @@ pub fn last_run(app: &AppDir) -> Option<serde_json::Value> {
     serde_json::from_str(&text).ok()
 }
 
-/// The rotation's LaunchAgent through `launchctl` on macOS; on Windows it
-/// is never on and cannot be turned on.
+/// The rotation's LaunchAgent through `launchctl` on macOS; on Windows and
+/// Linux it is never on and cannot be turned on.
 #[derive(Debug, Clone)]
 pub struct Schedule {
     pub launchctl: PathBuf,
@@ -512,7 +512,7 @@ impl Schedule {
 
     /// Whether the LaunchAgent is loaded; `None` when that cannot be told.
     pub fn loaded(&self) -> Option<bool> {
-        if !cfg!(unix) {
+        if !cfg!(target_os = "macos") {
             return Some(false);
         }
         crate::switcher::service_loaded(&self.launchctl, LABEL)
@@ -520,14 +520,14 @@ impl Schedule {
 
     /// Writes and loads the LaunchAgent that runs `<exe> antigravity rotate`.
     pub fn install(&self, home: &Path, exe: &Path) -> Result<(), AgentError> {
-        if !cfg!(unix) {
+        if !cfg!(target_os = "macos") {
             return Err(AgentError::Io(UNSUPPORTED.into()));
         }
         agent::install_job(&self.launchctl, home, LABEL, exe, &ARGS)
     }
 
     pub fn remove(&self, home: &Path) -> Result<(), AgentError> {
-        if !cfg!(unix) {
+        if !cfg!(target_os = "macos") {
             return Ok(());
         }
         agent::remove_job(&self.launchctl, home, LABEL)

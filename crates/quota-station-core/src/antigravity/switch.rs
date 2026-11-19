@@ -25,7 +25,8 @@
 //!    running, so one that runs again by then stops the switch;
 //! 5. the account must still be logged in here, and the shared login is
 //!    written (`credential`: the Keychain item, on Windows the Credential
-//!    Manager credential); a failure leaves the old one as it was;
+//!    Manager credential, on Linux agy's login file); a failure leaves the
+//!    old one as it was;
 //! 6. only then the index's current account and the binding are written,
 //!    both or neither, the six-hour watch starts, and the app
 //!    is opened again if it was quit (a failure to open is reported apart:

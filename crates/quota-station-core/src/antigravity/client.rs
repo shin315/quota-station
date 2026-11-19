@@ -69,6 +69,11 @@ impl OAuthClient {
     pub(crate) fn secret(&self) -> &str {
         &self.secret
     }
+
+    /// The client as `oauth-client.json` holds it.
+    pub(crate) fn file_text(&self) -> String {
+        serde_json::json!({ "client_id": self.id, "client_secret": self.secret }).to_string()
+    }
 }
 
 /// Whether the app has a client to log in with, and why not.
@@ -142,8 +147,14 @@ fn load_file(dir: &AppDir) -> Result<OAuthClient, ClientStatus> {
         return Err(ClientStatus::TooOpen);
     }
     let text = dir.read_to_string(&file).map_err(|_| ClientStatus::Unreadable)?;
+    parse(&text)
+}
+
+/// The client in the text of an `oauth-client.json`, or
+/// [`ClientStatus::Invalid`].
+pub fn parse(text: &str) -> Result<OAuthClient, ClientStatus> {
     // Notepad and PowerShell 5's UTF-8 may start the file with a byte order mark.
-    let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let fields: Fields = serde_json::from_str(text).map_err(|_| ClientStatus::Invalid)?;
     OAuthClient::new(&fields.client_id, &fields.client_secret).ok_or(ClientStatus::Invalid)
 }

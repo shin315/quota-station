@@ -15,13 +15,13 @@
 //! - the rotation every three minutes, from a `systemd --user` timer
 //!   ([`crate::claude::systemd::Systemd`], [`crate::os::scheduler`]).
 
-use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::claude::keychain::KeychainError;
 use crate::os::{SecretStore, Split};
-use crate::sealed::{Seal, SealedFiles};
+pub use crate::sealed::Plain;
+use crate::sealed::SealedFiles;
 
 /// The app's secrets and Claude Code's (absent) login items, each in its
 /// place.
@@ -63,21 +63,6 @@ pub fn home() -> Option<PathBuf> {
             Some(PathBuf::from(std::ffi::OsStr::from_bytes(dir))).filter(|d| d.is_absolute())
         }
     })
-}
-
-/// No seal: the bytes as they are, in a file only its owner reads
-/// ([`SealedFiles`] writes mode 600 in folders of mode 700).
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Plain;
-
-impl Seal for Plain {
-    fn seal(&self, plain: &[u8]) -> io::Result<Vec<u8>> {
-        Ok(plain.to_vec())
-    }
-
-    fn open(&self, sealed: &[u8]) -> io::Result<Vec<u8>> {
-        Ok(sealed.to_vec())
-    }
 }
 
 /// Claude Code's login items on Linux: there are none, its login is its

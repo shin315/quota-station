@@ -19,20 +19,26 @@
 //!   lists ([`listing`]); the binding, the switch log and the six-hour
 //!   watch ([`switch`], [`watch`]);
 //! - the tokens only in the app's own Keychain items ([`store`]; on
-//!   Windows the app's own sealed files).
+//!   Windows the app's own sealed files, on Linux the app's own files of
+//!   mode 600 under `antigravity/secrets`).
 //!
 //! Switching the account (M4c, [`switch`]) writes the login Antigravity.app
 //! and agy share ([`credential`]; on Windows the credential in Credential
 //! Manager), quits and reopens Antigravity.app when the owner asks
 //! ([`desktop`]; on Windows `Antigravity.exe`), points the binding at the
 //! new account, and watches six hours for the switch to be undone
-//! ([`watch`]).
+//! ([`watch`]). On Linux, where the command line alone runs, it writes the
+//! file agy keeps its login in, and no desktop app is asked about.
+//!
+//! The accounts logged in on one computer are carried to another by a
+//! bundle ([`bundle`]): `export` there, `import` here.
 //!
 //! Parts of [`oauth`], [`oauth_server`], [`token`], [`index`],
 //! [`cloud_code`], [`version`], [`export`], [`credential`], [`desktop`] and
 //! [`switch`] hold adapted code under CC BY-NC-SA 4.0; each file names its
 //! source in its header, and `NOTICE` credits it and lists the changes.
 
+pub mod bundle;
 pub mod cli;
 pub mod client;
 pub mod cloud_code;

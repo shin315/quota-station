@@ -485,6 +485,11 @@ fn antigravity_cli(args: &[String]) -> i32 {
         eprintln!("quota-station antigravity: HOME is not set");
         return 1;
     };
+    // Antigravity's OAuth client, from the Antigravity installed here, as
+    // the app finds it: `export` carries it with the accounts.
+    quota_station_core::antigravity::client::use_installed(
+        quota_station_core::antigravity::discover::Sources::system(&home),
+    );
     cli::run(&cli::Cli::system(&home), args, &mut std::io::stdout(), &mut std::io::stderr())
 }
 

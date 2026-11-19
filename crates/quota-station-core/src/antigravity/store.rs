@@ -11,17 +11,34 @@
 //! to read them. The app never names another service: not the
 //! `gemini`/`antigravity` item that Antigravity.app and agy share, not
 //! another account tool's or Claude Code's.
+//!
+//! On Linux, which has no Keychain (and Linux in WSL no keyring the app
+//! could count on), the items are files in the app's own `antigravity/`
+//! folder ([`files_dir`]): `secrets/<service>/<account>.bin`, of mode 600
+//! in folders of mode 700, each written whole to a temporary file and
+//! renamed over the old one ([`Keychain::files`]).
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use super::token::TokenData;
 // macOS's store, and the tests' fake one on every system.
-#[cfg(any(not(windows), feature = "test-support"))]
+#[cfg(any(not(any(windows, target_os = "linux")), feature = "test-support"))]
 use crate::agents::secrets::SecurityCli;
 pub use crate::agents::secrets::{StoreError, TIMEOUT};
+use crate::app_dir::AppDir;
 use crate::os::SecretStore;
+use crate::sealed::{Plain, SealedFiles};
 
 pub const SERVICE: &str = "com.shin315.quota-station.antigravity";
+/// The folder of the items on Linux, in the app's `antigravity/` folder.
+pub const FILES_DIR: &str = "secrets";
+
+/// Where the items are kept on Linux: `antigravity/secrets` in the app's
+/// folder.
+pub fn files_dir(app: &AppDir) -> PathBuf {
+    super::index::dir(app).join(FILES_DIR)
+}
 
 /// The Antigravity tokens, in the app's [`SecretStore`].
 #[derive(Debug, Clone)]
@@ -31,13 +48,29 @@ pub struct Keychain {
 
 impl Keychain {
     /// The system's store: [`SecurityCli`] on macOS, the app's sealed
-    /// files on Windows ([`crate::os::secret_store`]).
+    /// files on Windows ([`crate::os::secret_store`]), the app's own files
+    /// on Linux ([`Keychain::files`] in [`files_dir`]).
     pub fn system() -> Self {
         #[cfg(windows)]
-        let store = crate::os::secret_store();
-        #[cfg(not(windows))]
-        let store = SecurityCli::system();
-        Keychain::new(store)
+        return Keychain::new(crate::os::secret_store());
+        #[cfg(not(any(windows, target_os = "linux")))]
+        return Keychain::new(SecurityCli::system());
+        #[cfg(target_os = "linux")]
+        {
+            // The tests keep their items in a folder of their own; one that
+            // reached for the real store stops here.
+            if cfg!(feature = "test-support") {
+                panic!("tests must use a fake store");
+            }
+            let home = crate::linux::home().expect("no home folder: HOME is not set");
+            Keychain::files(&files_dir(&AppDir::new(crate::claude::app_dir(&home))))
+        }
+    }
+
+    /// The items as files under `dir`, as Linux keeps them: mode 600 in
+    /// folders of mode 700, each written whole and renamed over the old one.
+    pub fn files(dir: &Path) -> Self {
+        Keychain::new(SealedFiles::new(dir, Plain))
     }
 
     pub fn new(store: impl SecretStore + 'static) -> Self {

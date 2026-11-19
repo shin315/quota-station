@@ -38,6 +38,15 @@ changes the app should keep these rules, or say plainly which one changes.
   `CredWriteW` replaces it in one call; when Windows refuses, the switch
   ends there and points nothing at the new account. The value goes to no
   command line.
+  On Linux (the command line, `quota-station-cli`) the shared login is the
+  file agy keeps it in where it has no keyring it can count on (WSL, no
+  D-Bus session bus, SSH, a container):
+  `~/.gemini/antigravity-cli/antigravity-oauth-token`. The command line
+  never reads it; a switch makes agy's folder (`~/.gemini/antigravity-cli`)
+  when it is not there yet and sets it to mode 700 each time, and replaces
+  the login file whole with the same JSON, as it is: written to a temporary
+  file of mode 600 beside it and renamed over it, so a failed write leaves
+  the login that was there. The value goes to no command line.
 
 The app keeps the Claude accounts itself and runs no other switcher's command;
 what it reads and writes of Claude Code's login is in
@@ -117,6 +126,20 @@ Files, under `~/Library/Application Support/com.shin315.quota-station/`:
   Claude response's and Antigravity model call's id, so a call is counted
   once. No line of a log, no prompt, reply,
   tool output or instruction, nothing that came from a conversation.
+
+On Linux the same files are under `~/.config/com.shin315.quota-station/`,
+and each Antigravity account's tokens, which a Mac keeps in the Keychain
+(below), are a file of mode 600 in
+`antigravity/secrets/com.shin315.quota-station.antigravity/` (folders of
+mode 700), written whole and renamed over the old one: a headless machine,
+or WSL, has no keyring the command line could count on.
+
+`quota-station antigravity export` writes every account's tokens, the
+index and the OAuth client to a new folder the owner names (mode 700, its
+files mode 600), so that `import` on another computer adds them there
+without a new login. Whoever has that bundle can use the accounts; it is
+kept like a password and removed once imported. Neither command prints a
+token or the client, only the accounts' numbers and emails.
 
 In the owner's login Keychain, not in that folder:
 

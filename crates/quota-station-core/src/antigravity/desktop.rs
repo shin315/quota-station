@@ -26,6 +26,12 @@
 //!   ask first. Nothing here ever kills it;
 //! - open: `open -b com.google.antigravity`.
 //!
+//! On Linux, none ([`Desktop::none`]): the command line switches the login
+//! of agy, a program each terminal starts on its own, and Antigravity's
+//! desktop app is not asked about. There is no app to quit or open again:
+//! an agy session that runs keeps the login it started with until it is
+//! started again.
+//!
 //! On Windows, `Antigravity.exe` in its install folders ([`install_roots`]):
 //!
 //! - installed: the first of its folders that holds `Antigravity.exe` (or
@@ -149,15 +155,20 @@ pub struct Desktop {
     open: PathBuf,
     app: PathBuf,
     process: String,
+    /// No app to ask about ([`Desktop::none`]).
+    none: bool,
 }
 
 #[cfg(not(windows))]
 impl Desktop {
-    /// The real Antigravity.app, through macOS's own tools.
+    /// The real Antigravity.app, through macOS's own tools; on Linux none.
     pub fn system() -> Self {
         // The tests run fakes; one that reached for the real app stops here.
         if cfg!(feature = "test-support") {
             panic!("tests must use a fake Antigravity.app");
+        }
+        if cfg!(target_os = "linux") {
+            return Desktop::none();
         }
         Desktop {
             plutil: PathBuf::from("/usr/bin/plutil"),
@@ -166,6 +177,21 @@ impl Desktop {
             open: PathBuf::from("/usr/bin/open"),
             app: PathBuf::from(APP_PATH),
             process: PROCESS.to_string(),
+            none: false,
+        }
+    }
+
+    /// No desktop app: not installed, never running, nothing to quit or
+    /// open. A switch then changes agy's login alone.
+    pub fn none() -> Self {
+        Desktop {
+            plutil: PathBuf::new(),
+            pgrep: PathBuf::new(),
+            osascript: PathBuf::new(),
+            open: PathBuf::new(),
+            app: PathBuf::new(),
+            process: String::new(),
+            none: true,
         }
     }
 
@@ -180,6 +206,7 @@ impl Desktop {
             open: bin.join("open"),
             app: app.to_path_buf(),
             process: app.join("Contents/MacOS/Antigravity").display().to_string(),
+            none: false,
         }
     }
 
@@ -192,7 +219,7 @@ impl Desktop {
     /// only when the bundle is not there; a bundle whose version cannot be
     /// read is `Unreadable`.
     pub fn installed(&self) -> Installed {
-        if !Bundle::new(&self.app).present() {
+        if self.none || !Bundle::new(&self.app).present() {
             return Installed::Missing;
         }
         let plist = self.app.join("Contents/Info.plist").display().to_string();
@@ -220,6 +247,9 @@ impl Desktop {
 
     /// Whether it runs: `pgrep` exits 0 for a match and 1 for none.
     pub fn running(&self) -> Result<bool, String> {
+        if self.none {
+            return Ok(false);
+        }
         let out = self.run(&self.pgrep, &["-f", &self.process])?;
         match out.code {
             Some(0) => Ok(true),
@@ -231,6 +261,9 @@ impl Desktop {
     /// Asks it to quit and waits up to `wait` for it to be gone. It is never
     /// killed: one that does not quit is left running and reported.
     pub fn quit(&self, wait: Duration) -> Result<(), QuitError> {
+        if self.none {
+            return Ok(());
+        }
         let deadline = Instant::now() + wait;
         let script = format!("tell application id \"{BUNDLE_ID}\" to quit");
         // osascript waits for the app's answer; a dialog in the app can hold
@@ -250,6 +283,9 @@ impl Desktop {
 
     /// Opens it again.
     pub fn open(&self) -> Result<(), String> {
+        if self.none {
+            return Ok(());
+        }
         let out = self.run(&self.open, &["-b", BUNDLE_ID])?;
         if out.code == Some(0) {
             Ok(())
