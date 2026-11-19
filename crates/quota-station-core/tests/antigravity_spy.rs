@@ -304,10 +304,14 @@ const FILE_CALLS: [&str; 11] = [
 /// Every file of the Antigravity module and the app's commands for it: only
 /// the folder guard touches files, and no code (comments aside) names
 /// another tool's secret files, nor the shared Keychain item outside the one
-/// module that writes it.
+/// module that writes it. Two places reach past the guard, by what they
+/// are for: the bundle (`bundle.rs`), at the path the owner gives `export`
+/// and `import`, and the one function that writes agy's login file on Linux
+/// (`write_file` in `credential.rs`).
 #[test]
 fn only_the_folder_guard_opens_files() {
-    let sources: [(&str, &str); 24] = [
+    let sources: [(&str, &str); 25] = [
+        ("bundle.rs", include_str!("../src/antigravity/bundle.rs")),
         ("cli.rs", include_str!("../src/antigravity/cli.rs")),
         ("client.rs", include_str!("../src/antigravity/client.rs")),
         ("cloud_code.rs", include_str!("../src/antigravity/cloud_code.rs")),
@@ -342,12 +346,20 @@ fn only_the_folder_guard_opens_files() {
         "secure-account-storage",
     ];
     for (file, text) in sources {
+        let mut agy_login_file = false;
         for (n, line) in text.lines().enumerate() {
             let code = line.trim_start();
             if code.starts_with("//") {
                 continue;
             }
-            if file != "app_dir.rs" {
+            if file == "credential.rs" {
+                if line.starts_with("fn write_file(") {
+                    agy_login_file = true;
+                } else if line == "}" {
+                    agy_login_file = false;
+                }
+            }
+            if file != "app_dir.rs" && file != "bundle.rs" && !agy_login_file {
                 // The guard's own module and the trait for a file's mode are
                 // the only `fs` paths allowed; any other names the filesystem.
                 let code =

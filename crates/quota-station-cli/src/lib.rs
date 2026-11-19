@@ -98,6 +98,11 @@ pub fn antigravity(
     err: &mut dyn Write,
 ) -> i32 {
     use quota_station_core::antigravity::cli;
+    // The usage needs none of this system's stores.
+    if matches!(args.first().map(String::as_str), None | Some("help" | "--help" | "-h")) {
+        let _ = write!(out, "{}", cli::USAGE);
+        return 0;
+    }
     cli::run(&cli::Cli::system(home), args, out, err)
 }
 

@@ -51,7 +51,8 @@ usage: quota-station antigravity <command>
   switch N|EMAIL [--keep-running] [--json]
                         make account N Antigravity's login; a running
                         Antigravity.app is quit and opened again, unless
-                        --keep-running (it may then write its own login back)
+                        --keep-running (it may then write its own login back);
+                        on Linux, agy's login file
   rotate [--dry-run]    one run of the rotation (the LaunchAgent's)
   rotation on [--threshold PCT] [--cooldown MIN]
                         every 3 minutes, switch when the account in use has
@@ -247,11 +248,11 @@ pub fn run(cli: &Cli, args: &[String], out: &mut dyn Write, err: &mut dyn Write)
             }
         }
         "rotation" => rotation(cli, rest, out, err),
-        "export" => match rest.first().filter(|a| !a.starts_with("--") || *a == "-") {
+        "export" => match rest.first().filter(|a| !a.starts_with("--")) {
             Some(to) => export(cli, to, out, err),
             None => usage_error(err),
         },
-        "import" => match rest.first().filter(|a| !a.starts_with("--") || *a == "-") {
+        "import" => match rest.first().filter(|a| !a.starts_with("--")) {
             Some(from) => import(cli, from, out, err),
             None => usage_error(err),
         },
@@ -276,21 +277,14 @@ fn export(cli: &Cli, to: &str, out: &mut dyn Write, err: &mut dyn Write) -> i32 
         Ok(bundle) => bundle,
         Err(e) => return fail(err, &e),
     };
-    let written = if to == "-" {
-        use std::io::IsTerminal;
-        if std::io::stdout().is_terminal() {
-            return fail(err, &"the bundle holds every account's token: send it to a file or a pipe, not the terminal");
-        }
-        bundle.write_tar(out)
-    } else if to.ends_with(".tar") {
-        crate::os::with_mode(std::fs::OpenOptions::new().write(true).create_new(true), 0o600)
-            .open(to)
-            .map_err(Into::into)
-            .and_then(|mut file| bundle.write_tar(&mut file))
-    } else {
-        bundle.write_dir(Path::new(to))
-    };
-    if let Err(e) = written {
+    if to == "-" && std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+        return fail(
+            err,
+            &"the bundle holds every account's token: send it to a file or a pipe, not the \
+              terminal",
+        );
+    }
+    if let Err(e) = bundle.write_to(to, out) {
         return fail(err, &e);
     }
     let said: &mut dyn Write = if to == "-" { err } else { out };
@@ -307,17 +301,7 @@ fn import(cli: &Cli, from: &str, out: &mut dyn Write, err: &mut dyn Write) -> i3
         let _ = writeln!(err, "quota-station antigravity import: {e}");
         1
     };
-    let path = Path::new(from);
-    let bundle = if from == "-" {
-        Bundle::read_tar(&mut std::io::stdin().lock())
-    } else if path.is_dir() {
-        Bundle::read_dir(path)
-    } else {
-        std::fs::File::open(path)
-            .map_err(Into::into)
-            .and_then(|mut file| Bundle::read_tar(&mut file))
-    };
-    let bundle = match bundle {
+    let bundle = match Bundle::read_from(from, &mut std::io::stdin().lock()) {
         Ok(bundle) => bundle,
         Err(e) => return fail(err, &e),
     };

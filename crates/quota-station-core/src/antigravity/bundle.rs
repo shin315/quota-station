@@ -192,6 +192,37 @@ impl Bundle {
         (1..).zip(&self.index.accounts).map(|(n, a)| (n, a.email.clone())).collect()
     }
 
+    /// Writes the bundle where `export` was told: a tar stream on `out`
+    /// (`-`), a new tar file of mode 600 (a name ending in `.tar`), else
+    /// the folder [`Bundle::write_dir`] makes.
+    pub fn write_to(&self, to: &str, out: &mut dyn Write) -> Result<(), BundleError> {
+        if to == "-" {
+            return self.write_tar(out);
+        }
+        if to.ends_with(".tar") {
+            let mut file = crate::os::with_mode(
+                std::fs::OpenOptions::new().write(true).create_new(true),
+                0o600,
+            )
+            .open(to)?;
+            return self.write_tar(&mut file);
+        }
+        self.write_dir(Path::new(to))
+    }
+
+    /// Reads the bundle `import` was told: a tar stream on `input` (`-`), a
+    /// folder, else a tar file.
+    pub fn read_from(from: &str, input: &mut dyn Read) -> Result<Bundle, BundleError> {
+        let path = Path::new(from);
+        if from == "-" {
+            Bundle::read_tar(input)
+        } else if path.is_dir() {
+            Bundle::read_dir(path)
+        } else {
+            Bundle::read_tar(&mut std::fs::File::open(path)?)
+        }
+    }
+
     /// Writes the bundle as the folder `dir`, which must not be there yet
     /// or be empty: mode 700, its files 600, none replaced.
     pub fn write_dir(&self, dir: &Path) -> Result<(), BundleError> {
